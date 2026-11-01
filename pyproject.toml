@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quartetiq"
+version = "0.1.0"
+description = "Reproducible solo-violin intonation analysis baseline"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "librosa>=0.11,<0.12",
+  # Keep the pYIN JIT runtime on the tested NumPy/Numba compatibility line.
+  "numba>=0.61,<0.62",
+  "numpy>=2.2,<2.3",
+  "scipy>=1.15,<1.16",
+  "music21>=9.7,<10",
+  "soundfile>=0.13,<0.14",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10"]
+
+[project.scripts]
+quartetiq = "quartetiq.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
