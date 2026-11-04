@@ -1,4 +1,4 @@
-"""Score-relative pitch centers with explicit, constant-tempo alignment."""
+"""Score-relative pitch centers using automatic or constant-tempo boundaries."""
 
 import json
 from collections.abc import Sequence
@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 
+from quartetiq.alignment import NoteAlignment
 from quartetiq.pitch import PitchConfig, PitchTrack, hz_to_cents, midi_to_hz
 from quartetiq.score import NoteEvent
 
@@ -33,17 +34,51 @@ class AnalysisConfig:
 
 def analyze_notes(events: Sequence[NoteEvent], track: PitchTrack,
                   pitch_config: PitchConfig = PitchConfig(),
-                  config: AnalysisConfig = AnalysisConfig()) -> list[dict[str, Any]]:
+                  config: AnalysisConfig = AnalysisConfig(),
+                  alignment: Sequence[NoteAlignment] | None = None) -> list[dict[str, Any]]:
     """Estimate median cents from finite, voiced interior frames.
 
     Exclude at least half a pYIN window at either boundary, plus the configured
     fractional trim. Median in log-frequency space tolerates isolated outliers;
     MAD describes spread, not confidence in alignment or octave correctness.
+    Supplied alignment overrides manual timing; failed/uncertain rows never
+    fall back to fixed timing and never produce an intonation measurement.
     """
+    aligned = None
+    if alignment is not None:
+        aligned = {row.note_id: row for row in alignment}
+        if len(aligned) != len(alignment) or set(aligned) != {e.id for e in events}:
+            raise ValueError("Alignment must contain exactly one row per score note")
+        previous_end = 0.
+        for event in events:
+            row = aligned[event.id]
+            if row.measure != event.measure or row.expected_midi != event.midi:
+                raise ValueError("Alignment does not match score")
+            if row.alignment_status not in {"aligned", "uncertain", "failed"}:
+                raise ValueError("Unknown alignment status")
+            if row.alignment_status == "aligned":
+                if (row.start_seconds is None or row.end_seconds is None
+                        or not np.all(np.isfinite([row.start_seconds, row.end_seconds]))
+                        or row.start_seconds < previous_end - 1e-9
+                        or row.end_seconds <= row.start_seconds):
+                    raise ValueError("Invalid aligned boundaries")
+                previous_end = row.end_seconds
     results = []
     for event in events:
-        start = config.start_seconds + event.onset_quarters * 60 / config.bpm
-        duration = event.duration_quarters * 60 / config.bpm
+        row = aligned[event.id] if aligned is not None else None
+        if row is not None and row.alignment_status != "aligned":
+            results.append({**asdict(event), "start_seconds": row.start_seconds,
+                            "end_seconds": row.end_seconds, "alignment_status": row.alignment_status,
+                            "reference_hz": midi_to_hz(event.midi), "interior_frames": 0,
+                            "valid_frames": 0, "status": "alignment_" + row.alignment_status,
+                            "cents_deviation": None, "pitch_center_hz": None, "mad_cents": None})
+            continue
+        if row is not None:
+            start = row.start_seconds
+            duration = row.end_seconds - start
+        else:
+            start = config.start_seconds + event.onset_quarters * 60 / config.bpm
+            duration = event.duration_quarters * 60 / config.bpm
         margin = max(duration * config.interior_fraction, pitch_config.frame_length / (2 * pitch_config.sample_rate))
         interior = (track.times >= start + margin) & (track.times < start + duration - margin)
         valid = (interior & track.voiced & np.isfinite(track.frequencies) & (track.frequencies > 0)
@@ -53,7 +88,7 @@ def analyze_notes(events: Sequence[NoteEvent], track: PitchTrack,
         enough = len(cents) >= config.min_frames
         center = float(np.median(cents)) if enough else None
         results.append({
-            **asdict(event), "start_seconds": start, "end_seconds": start + duration,
+            **asdict(event), "alignment_status": row.alignment_status if row else "constant_tempo", "start_seconds": start, "end_seconds": start + duration,
             "reference_hz": reference, "interior_frames": int(interior.sum()),
             "valid_frames": len(cents), "status": "ok" if enough else "insufficient_frames",
             "cents_deviation": center,

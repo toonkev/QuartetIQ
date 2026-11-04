@@ -72,16 +72,52 @@ flat. JSON schema version 1 stores unavailable numeric results as `null`, never
 nonstandard NaN or Infinity. `insufficient_frames` explicitly identifies missing
 measurements. Invalid audio samples and invalid configuration raise errors.
 
-## Baseline scope and next milestone
+## Automatic alignment
 
-Timing is **provided**, not inferred: analysis BPM and start offset must match
-performance timing. No rubato, onset detection, time warping, or automatic score
-following is implemented. Median centers resist isolated frame errors but do not
-correct sustained octave errors or wrong alignment. Synthetic accuracy does not
-establish accuracy on microphone recordings.
+Use automatic alignment without supplying performance BPM or start time:
 
-The parser supports one monophonic part; chords, overlapping voices, and grace
-notes are rejected. Repeats are not expanded; tied written segments remain separate
-events. The generated arrangement needs neither repeats nor ties. Future work:
-real violin fixtures, automatic note alignment, vibrato-aware diagnostics, and
-validation of confidence and error thresholds on real performances.
+```bash
+uv run quartetiq analyze artifacts/ode.musicxml artifacts/test.wav --auto-align --output artifacts/aligned.json
+```
+
+The default constant-tempo mode remains available. `--auto-align` on `demo`
+uses BPM/start only for synthesis; alignment receives neither parameter.
+Automatic output uses schema version 2 and includes `note_alignment` rows with
+`note_id`, `measure`, `expected_midi`, `start_seconds`, `end_seconds`, and
+`alignment_status`. The Python API is `align_notes(events, track, audio,
+pitch_config)`, followed by `analyze_notes(..., alignment=alignment)`.
+Audio is optional but supplies evidence for repeated-note articulation.
+
+The aligner infers global tempo from the active recording span and score duration,
+then uses segmental DTW: each note or rest consumes a contiguous run of pitch
+frames. Pitch mismatch, duration deviation, and short-window amplitude valleys
+score transitions. Local durations are constrained to 65–140% of the inferred
+average, with a cumulative timing band. This accommodates ±10% tempo changes
+and moderate local variation. Initial/final silence is trimmed; internal score
+rests are explicit states. No ground-truth sidecar or score BPM is read.
+
+`aligned` means the path passed evidence gates, not a calibrated probability.
+A note needs at least five voiced interior frames, at least 50% interior voicing,
+and median pitch mismatch no larger than 75 cents. Repeated adjacent pitches
+need acoustic boundary evidence; otherwise both notes become `uncertain`.
+Widespread pitch mismatch (over 20% of notes), insufficient audio, or no feasible
+path produces `failed` rows. Unavailable boundaries are null. Uncertain/failed
+rows produce null intonation, never a fallback measurement at a fixed time.
+Aligned rows use robust median cents over the trimmed aligned interval.
+
+### Current limitations
+
+This is offline alignment of a complete, single-part monophonic take. Missing or
+extra notes, restarts, partial takes, large rubato, strong background sounds,
+long reverberation, and octave tracking errors are unsupported and can cause
+failure or incorrect correspondence. Gates are conservative heuristics; they do
+not detect every wrong path. Slurred repeated pitches without a detectable
+amplitude dip are intentionally uncertain; tied written segments have the same
+limitation. Quiet attacks/releases introduce frame/window-scale boundary error.
+Leading score rests cannot be distinguished from recording silence.
+
+The parser rejects chords, overlapping voices, and grace notes; repeats are not
+expanded. Synthetic validation does not establish microphone violin accuracy.
+Real-recording fixtures, calibrated reliability, vibrato-aware diagnostics, and
+cross-take analysis remain future work. No dashboard or model retraining is part
+of this milestone.
