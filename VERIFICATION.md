@@ -163,3 +163,68 @@ Still pending: actual Community Cloud deployment and hosted upload verification,
 real microphone violin validation, real Muse Spark API/tool transport and
 credentials, and the hackathon demo/submission materials. No public deployment,
 real-recording accuracy, or AI conversation is claimed by this milestone.
+
+# Milestone 4: real Meta Muse Spark integration
+
+Full suite: **109 passed, 0 failed** in 150.97 seconds, including all 70 existing
+tests plus 39 new mocked protocol/UI tests. Executed after `uv sync --frozen`:
+
+```bash
+XDG_CACHE_HOME=/tmp/quartetiq-cache .venv/bin/python -m pytest -q
+```
+
+The implementation follows Meta's official cookbook:
+<https://dev.meta.ai/docs/cookbook/tool-function-calling>, inspected for this
+milestone. It uses the OpenAI SDK with `https://api.meta.ai/v1`,
+`muse-spark-1.3`, and explicit `MODEL_API_KEY` credentials. Only `tool_choice=
+"auto"` is used, as required by the documented Meta API. No alternate model or
+simulated coaching response is substituted.
+
+## What was verified
+
+- Five schemas match the existing comparison function signatures, with measured
+  `results` bound server-side and inaccessible as model arguments.
+- Explicit allowlisted dispatch, typed JSON validation, duplicate/unknown-field
+  rejection, safe error tool results, full assistant-call replay, and matching
+  tool-result IDs, including multiple calls and multi-round recovery.
+- Every displayed coaching answer requires a successful measurement call in
+  that turn. Tool-free replies and infinite loops end in a visible error within
+  the bounded budget. This does not prove that every model-generated claim is
+  correct; users should check recommendations against the measurements.
+- Missing credentials, authentication/permission failures, network/timeout and
+  quota errors, incomplete responses, and unexpected API errors yield sanitized
+  messages without raw provider bodies or credentials.
+- Chat rendering, history continuity, session-local storage, failure atomicity,
+  reset after changed measurements/source or incomplete uploads, and a functional
+  numerical dashboard when no API key is configured.
+- Deployment `requirements.txt` installed successfully into a fresh Python
+  3.12.14 environment at `/tmp/quartetiq-m4-deploy`; imports confirmed the local
+  `quartetiq` package, Streamlit, and OpenAI SDK. OpenAI SDK version is 2.54.0.
+  All previously locked package versions remain unchanged, including NumPy
+  2.2.6, Numba 0.61.2, and SciPy 1.15.3. `git diff --check` passed.
+
+## Live verification status and blockers
+
+**Real authenticated Muse Spark request: NOT verified.** No configured key was
+available in the environment or Streamlit secrets at the last check. The user
+indicated they would configure a key securely; no key is stored in this commit.
+An unauthenticated endpoint reachability probe failed before reaching Meta:
+`CONNECT tunnel failed, response 403`. The managed workspace's restricted
+network policy does not list `api.meta.ai`.
+
+**Real model-directed tool call: NOT verified.** Mocked tests executed the actual
+local read-only functions against real bundled measurements, but the model
+responses in those tests were mocks. This is not evidence of live API function
+calling. The code path for real calls is implemented and an explicit live smoke
+test is available as `python -m quartetiq.muse --tools` after configuration.
+
+Remaining live/deployment requirements: a valid `MODEL_API_KEY` with Muse Spark
+1.3 access/quota, outbound HTTPS permission for `api.meta.ai`, successful live
+connectivity plus tool-call verification, and actual Community Cloud deployment.
+Community Cloud secret setup is documented in DEPLOYMENT.md. The numerical app
+and deterministic priorities remain usable without these credentials.
+
+New files: `src/quartetiq/muse.py`, `src/quartetiq/coach_ui.py`,
+`tests/test_muse.py`, `tests/test_coach_ui.py`.
+Modified: `app.py`, `pyproject.toml`, `uv.lock`, `requirements.txt`, `.gitignore`,
+`README.md`, `DEPLOYMENT.md`, and `VERIFICATION.md`.

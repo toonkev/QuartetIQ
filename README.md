@@ -215,10 +215,9 @@ The public functions in `quartetiq.comparison` are:
 `notes` and optional unique `take_id` (defaults to `take_1`, etc.). Outputs contain
 only JSON-compatible dictionaries/lists/scalars/null, support
 `json.dumps(output, allow_nan=False)`, and never mutate inputs or perform I/O.
-Invalid or conflicting score metadata raises `ValueError`. The future Muse Spark
-adapter can bind a verified session's results and expose these named functions
-as read-only tools; no API credentials, model calls, or simulated conversations
-are included here.
+Invalid or conflicting score metadata raises `ValueError`. The Muse Spark adapter binds the currently selected session's results to these
+functions. Model arguments cannot replace the dataset or execute arbitrary code.
+See the AI Coach setup below.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for Streamlit Community Cloud setup and
 [VERIFICATION.md](VERIFICATION.md) for measured results and tests.
@@ -228,9 +227,68 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for Streamlit Community Cloud setup and
 - Deploy to Community Cloud and verify its public URL and upload flow there.
 - Validate with real solo-violin recordings, particularly repeated/slurred notes
   and noisy rooms; document cases with unreliable correspondence.
-- Connect the real Muse Spark API/tool transport, obtain credentials, and test
-  grounded responses, errors, and session isolation. The current app has no AI chat.
+- Configure and verify real Muse Spark access on the deployment; review grounded
+  coaching against the measured evidence. Mocked tests alone do not verify live access.
 - Record the short demo and prepare the submission narrative, repository link,
   and measured limitations. Confirm the event's submission/API requirements.
 - Before broader public use, add authentication/resource controls appropriate
   to the audience and validate concurrent upload performance on the deployment.
+
+## AI Coach — Meta Muse Spark 1.3
+
+The **AI Coach** tab uses the real OpenAI-compatible Meta Chat Completions API
+at `https://api.meta.ai/v1`, model `muse-spark-1.3`, through the `openai` Python
+SDK. Configure `MODEL_API_KEY` in the server environment or Streamlit secrets;
+see [DEPLOYMENT.md](DEPLOYMENT.md). No credentials belong in source control or
+chat. Environment configuration takes precedence over Streamlit secrets.
+
+Load the demo (or finish analyzing uploads), open **AI Coach**, and ask
+“Which measures should I practice next?” Suggested questions, a chat input,
+conversation history, a clear-history control, and a connection check are
+provided. Without credentials the numerical dashboard and deterministic
+priorities continue to work; coaching controls are disabled. API errors produce
+sanitized messages, never a fabricated assistant answer.
+
+The implementation follows [Meta's function-calling cookbook](https://dev.meta.ai/docs/cookbook/tool-function-calling).
+Meta supports only `tool_choice="auto"`; required/named tool selection is not
+used. The model receives five function schemas matching the existing Python
+signatures, with `results` bound server-side. Names are explicitly allowlisted;
+JSON argument types, unknown fields, nonfinite values, and duplicate keys are
+checked before dispatch. Each full assistant tool-call message is followed by
+one JSON result per matching call ID. Invalid tool requests return safe errors
+so the model may recover. No generated Python is executed.
+
+Each question permits four tool rounds, at most eight calls per round, plus a
+final completion request. An answer is displayed only after a successful
+measurement tool call in that question. A model that skips evidence is prompted
+to retrieve it within the same bounded budget; otherwise the UI reports failure.
+This guard prevents a tool-free answer from being presented as grounded, but it
+cannot guarantee every statement in model prose is correct. Coaching instructions
+require measured cents, measures/note IDs, coverage, and a distinction between
+observed errors and hypothetical physical causes. Review generated advice
+against the numerical dashboard.
+
+Conversation history is private to Streamlit session state and reset when the
+selected dataset changes or uploads become incomplete/stale. Five complete
+prior turns are sent for context (tool calls/results stay paired). Failed API
+turns do not overwrite successful conversation history. No client or chat answer
+is shared through Streamlit caching. Questions and requested measurement results
+are sent to Meta; audio files and credentials are never included in prompts.
+
+### Explicit live verification
+
+These commands make real authenticated requests and may incur provider usage:
+
+```bash
+# Environment MODEL_API_KEY must already be configured securely.
+uv run python -m quartetiq.muse
+uv run python -m quartetiq.muse --tools
+```
+
+The first checks connectivity only. `--tools` additionally loads the bundled
+demo, asks the practice-priority question, executes model-requested functions
+against actual measurements, and reports successful tool names and whether an
+answer was received. It does not print credentials or raw provider errors.
+The CLI reads environment credentials; the app additionally reads Streamlit
+secrets. Mocked tests never make these live requests. Consult VERIFICATION.md
+for the actual live-test status of this milestone.
