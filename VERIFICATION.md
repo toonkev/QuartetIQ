@@ -95,3 +95,71 @@ and output semantics. No dependencies, neural models, or dashboard were added.
 Files created: `src/quartetiq/alignment.py`, `tests/test_alignment.py`.
 Files modified: `src/quartetiq/analysis.py`, `src/quartetiq/cli.py`, `README.md`,
 `VERIFICATION.md`.
+
+# Milestone 3: three-take rehearsal dashboard
+
+Full suite: **70 passed, 0 failed** in 110.20 seconds, including all 40 existing
+tests and 30 new comparison/dashboard tests. Executed after `uv sync --frozen`:
+
+```bash
+XDG_CACHE_HOME=/tmp/quartetiq-cache .venv/bin/python -m pytest -q
+```
+
+`git diff --check` passed.
+
+The bundled dataset was generated with `python -m quartetiq.demo --output-dir
+demo`, which writes three real WAVs and runs `analyze_file(..., auto_align=True)`
+on each. Analyses include pYIN frames and alignment boundaries. Truth sidecars
+are simulation inputs only; neither the dashboard nor analysis reads them.
+The manifest records SHA-256 checksums of audio, analyses, and the score.
+
+| Take | Reliable notes | Measured mean absolute error |
+| --- | ---: | ---: |
+| 1 | 30 / 30 | 7.35349 cents |
+| 2 | 30 / 30 | 6.35349 cents |
+| 3 | 30 / 30 | 1.18682 cents |
+
+Paired first-to-last improvement is **6.16667 cents / 83.86041%**, using all 30
+shared reliable note IDs. Measure 1, note 3 (G4) remains sharp at approximately
+35.02, 35.02, and 30.02 cents. Measure 2, note 3 (F#4) improves from approximately
+45.02 to 15.02 to 5.02 cents. The latter also meets the historical two-exceedance
+rule, although its latest result is within threshold. The UI explicitly labels
+this distinction. The initial demo assertion expected only one historical
+recurring note; it was corrected to account for actual measured pitch resolution.
+No measured values, truth, or classification threshold were changed to suppress
+this observation. Measures 5–8 remain within 10 cents across all three takes.
+
+Verification includes independent arithmetic fixtures for means, paired
+improvement, percentage validity, strict persistence thresholds, stable-ID joins,
+missing rows, unreliable alignment, and deterministic ranking. All five public
+read-only tool functions are tested for strict JSON serialization and lack of
+input mutation. Bundled results are recomputed from stored frames and one
+complete WAV is independently re-analyzed through the upload service to ensure
+it reproduces the bundled analysis exactly.
+
+Streamlit AppTest covers initial demo rendering, empty upload state, an explicit
+Analyze button, cache reuse, hiding stale results after file changes, and warnings
+for unreliable data. Uploaded silence yields unavailable measurements. An initial
+UI test stub failed to patch Streamlit's module-level uploader alias; correcting
+the stub enabled the full upload interaction test without changing app behavior.
+The app also started as a real local Streamlit server and its
+`/_stcore/health` endpoint returned `ok`.
+
+Added Streamlit 1.66.1 and Plotly 6.9.0 with their transitive dependencies. Comparing
+the new lockfile to the previous commit found **no existing package version
+changes**. In particular, NumPy 2.2.6, Numba 0.61.2, SciPy 1.15.3, librosa 0.11.0,
+music21 9.9.2, and soundfile 0.13.1 are retained. A pinned pip requirements export
+also installs the local package for Community Cloud compatibility.
+
+New files: `app.py`, `src/quartetiq/comparison.py`, `src/quartetiq/dashboard.py`,
+`src/quartetiq/demo.py`, `tests/test_comparison.py`, `tests/test_dashboard.py`,
+`.streamlit/config.toml`, `requirements.txt`, `DEPLOYMENT.md`, and the `demo/`
+score/audio/truth/analysis/manifest bundle. Modified: `src/quartetiq/synthesis.py`
+(additive rehearsal generator), `pyproject.toml`, `uv.lock`, `README.md`, and this
+verification report. Existing analysis/alignment implementation and 40 tests
+are unchanged.
+
+Still pending: actual Community Cloud deployment and hosted upload verification,
+real microphone violin validation, real Muse Spark API/tool transport and
+credentials, and the hackathon demo/submission materials. No public deployment,
+real-recording accuracy, or AI conversation is claimed by this milestone.

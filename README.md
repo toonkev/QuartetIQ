@@ -3,7 +3,8 @@
 A Python 3.12 numerical baseline for solo-violin intonation analysis. Generates
 an eight-bar Ode to Joy arrangement in D major (4/4, quarter = 88), synthesizes
 controlled harmonic audio, measures F0 with librosa pYIN, and compares median
-note pitch centers to A4 = 440 Hz equal temperament. No UI dependency.
+note pitch centers to A4 = 440 Hz equal temperament. A Streamlit rehearsal
+dashboard compares three takes using actual measured results.
 
 ## Install and run
 
@@ -13,6 +14,8 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 cd /workspace/QuartetIQ  # or your checkout location
 uv sync --locked
 uv run pytest
+uv run streamlit run app.py
+# Optional numerical demo:
 uv run quartetiq demo --output-dir artifacts/baseline --cents 20 --seed 7
 ```
 
@@ -118,6 +121,116 @@ Leading score rests cannot be distinguished from recording silence.
 
 The parser rejects chords, overlapping voices, and grace notes; repeats are not
 expanded. Synthetic validation does not establish microphone violin accuracy.
-Real-recording fixtures, calibrated reliability, vibrato-aware diagnostics, and
-cross-take analysis remain future work. No dashboard or model retraining is part
-of this milestone.
+Real-recording fixtures, calibrated reliability, and vibrato-aware diagnostics
+remain future work. The dashboard below adds cross-take analysis without model
+retraining.
+
+## Rehearsal dashboard
+
+Run `uv run streamlit run app.py` from the repository root. The bundled Ode to Joy
+session appears immediately: no audio analysis runs on initial demo load. Listen
+to the three recordings, view take averages and the signed-error plot, inspect
+note/measure tables, and download the measured comparison as strict JSON.
+
+Choose **Upload my recordings**, select one `.musicxml`/`.xml` score and three
+WAVs in chronological order, then click **Analyze recordings**. Each recording
+uses automatic alignment without supplied BPM/start time. Uploads are limited to
+20 MB, mono/stereo WAV, 60 seconds each, and 120 score notes. Three complete
+recordings of the same monophonic passage are required. Uncertain alignment or
+unavailable pitch produces a warning and blank measurement, never zero error.
+Changing an upload hides old results until analysis completes.
+
+pYIN is CPU-intensive and first-run JIT compilation adds startup time. Uploaded
+audio is processed server-side in temporary files deleted after analysis.
+`st.cache_data` caches by exact score/audio bytes, up to nine analyses for one
+hour in server memory; it avoids recomputing unchanged takes on reruns. The cache
+is shared within the server process; raw upload bytes participate in cache keys,
+and each visitor's upload/results state is session-local. There is no database,
+authentication, or long-term upload storage in this milestone.
+
+### Comparison semantics
+
+`comparison.py` joins notes by stable score IDs, validates matching score
+metadata, and excludes nonfinite values, non-OK pitch measurements, and
+uncertain/failed/unknown alignment. Explicit constant-tempo results remain
+supported. Take means are unweighted means across reliable notes; coverage is
+always reported. Signed cents retain sharp/flat direction; absolute cents
+measure magnitude.
+
+First-to-last improvement uses **only shared reliable notes**, so missing data
+cannot masquerade as improvement. Positive improvement is reduced absolute
+error; negative improvement is worsening. Percentage reduction is null when
+there are no paired notes or the initial mean error is zero.
+
+A persistent error exceeds the provisional **15-cent** threshold in at least
+two reliable takes. Two observed exceedances suffice if the third measurement
+is unavailable; counts and coverage remain visible. Fewer than two reliable
+observations yield `insufficient_data`. A value exactly 15 does not exceed it.
+Priorities rank recurring notes first, then known latest errors ahead of
+unavailable latest measurements, then descending latest/mean absolute error,
+and finally stable ID. A note that has improved can still have a recurring
+history; the dashboard explicitly marks when its latest take is within threshold.
+
+### Bundled demo provenance
+
+`demo/` contains the score, three WAVs, truth sidecars, measured analyses (including
+pYIN frames and automatic boundaries), and a SHA-256 manifest. Regenerate with:
+
+```bash
+uv run python -m quartetiq.demo --output-dir demo
+```
+
+The existing synthesizer is reused with deterministic per-note deviations:
+
+| Pattern | Note | Synthesis targets, takes 1 → 3 |
+| --- | --- | --- |
+| Stays sharp | Measure 1, note 3, G4 | +35, +33, +31 cents |
+| Improves | Measure 2, note 3, F#4 | +45, +12, +3 cents |
+| Accurate passage | All other notes, including measures 5–8 | +5, +3, 0 cents |
+
+Tempo is 88/92/84 BPM with 0.25/0.7/1.1-second initial silence. Analysis reads the
+written WAVs and never reads truth sidecars. UI results are loaded exclusively
+from measured analysis files. The improving note's middle take measures about
+15.02 cents (pYIN has finite pitch resolution), so the strict measured threshold
+also flags its history as recurring; its last take measures about 5.02 cents.
+We retain this real result rather than alter truth or override classification.
+Synthetic results do not establish accuracy on real microphone recordings.
+
+### Read-only functions for Muse Spark integration
+
+The public functions in `quartetiq.comparison` are:
+
+- `get_performance_summary(results, threshold_cents=15.0)` — take means, coverage,
+  and paired first-to-last improvement.
+- `compare_takes(results, threshold_cents=15.0)` — complete comparison, including
+  signed/absolute observations and exclusion reasons per note.
+- `get_measure_analysis(results, measure=None, threshold_cents=15.0)` — all
+  measure summaries, optionally filtered by integer measure number.
+- `get_persistent_errors(results, threshold_cents=15.0)` — recurring notes with
+  observation counts, actual measurements, and improvement.
+- `get_practice_priorities(results, threshold_cents=15.0)` — deterministic ranks
+  and evidence; no generated advice.
+
+`results` is a chronological list of QuartetIQ analysis dictionaries, each with
+`notes` and optional unique `take_id` (defaults to `take_1`, etc.). Outputs contain
+only JSON-compatible dictionaries/lists/scalars/null, support
+`json.dumps(output, allow_nan=False)`, and never mutate inputs or perform I/O.
+Invalid or conflicting score metadata raises `ValueError`. The future Muse Spark
+adapter can bind a verified session's results and expose these named functions
+as read-only tools; no API credentials, model calls, or simulated conversations
+are included here.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Streamlit Community Cloud setup and
+[VERIFICATION.md](VERIFICATION.md) for measured results and tests.
+
+### Before hackathon submission
+
+- Deploy to Community Cloud and verify its public URL and upload flow there.
+- Validate with real solo-violin recordings, particularly repeated/slurred notes
+  and noisy rooms; document cases with unreliable correspondence.
+- Connect the real Muse Spark API/tool transport, obtain credentials, and test
+  grounded responses, errors, and session isolation. The current app has no AI chat.
+- Record the short demo and prepare the submission narrative, repository link,
+  and measured limitations. Confirm the event's submission/API requirements.
+- Before broader public use, add authentication/resource controls appropriate
+  to the audience and validate concurrent upload performance on the deployment.

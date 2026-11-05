@@ -71,3 +71,24 @@ def synthesize(events: Sequence[NoteEvent], config: SynthesisConfig = SynthesisC
     if np.max(np.abs(audio), initial=0) > 1:
         raise ValueError("Synthetic signal clips; reduce noise")
     return audio, truth
+
+
+def synthesize_rehearsal_takes(events: Sequence[NoteEvent]) -> list[dict]:
+    """Three reproducible rehearsal recordings with explicit per-note truth.
+
+    Note 3 stays sharp; note 7 improves; all other notes are near equal temperament.
+    Uses the existing synthesizer unchanged and varies tempo/initial silence.
+    """
+    if len(events) < 7:
+        raise ValueError("The rehearsal demo requires at least seven notes")
+    takes = []
+    for i, (bpm, start, accurate, sharp, improving) in enumerate([
+        (88., .25, 5., 35., 45.), (92., .7, 3., 33., 12.), (84., 1.1, 0., 31., 3.)
+    ], 1):
+        config = SynthesisConfig(bpm=bpm, start_seconds=start, seed=i)
+        deviations = {e.id: accurate for e in events}
+        deviations[events[2].id] = sharp
+        deviations[events[6].id] = improving
+        audio, truth = synthesize(events, config, deviations)
+        takes.append({"take_id": f"take_{i}", "config": config, "audio": audio, "truth": truth})
+    return takes
