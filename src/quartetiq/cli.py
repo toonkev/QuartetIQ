@@ -9,6 +9,7 @@ import librosa
 import numpy as np
 import soundfile as sf
 
+from quartetiq.alignment import align_notes
 from quartetiq.analysis import AnalysisConfig, analyze_notes, write_json
 from quartetiq.pitch import PitchConfig, estimate_pitch
 from quartetiq.score import generate_score, parse_score
@@ -16,7 +17,7 @@ from quartetiq.synthesis import SynthesisConfig, synthesize
 
 
 def analyze_file(score: Path, audio: Path, output: Path, pitch: PitchConfig,
-                 analysis: AnalysisConfig) -> Path:
+                 analysis: AnalysisConfig, auto_align: bool = False) -> Path:
     """Read WAV/audio, downmix/resample, measure F0, and save provenance + frames."""
     samples, source_rate = sf.read(audio, dtype="float64", always_2d=True)
     if not np.all(np.isfinite(samples)):
@@ -26,13 +27,15 @@ def analyze_file(score: Path, audio: Path, output: Path, pitch: PitchConfig,
         mono = librosa.resample(mono, orig_sr=source_rate, target_sr=pitch.sample_rate)
     events = parse_score(score)
     track = estimate_pitch(mono, pitch)
+    alignment = align_notes(events, track, mono, pitch) if auto_align else None
     return write_json(output, {
-        "schema_version": 1, "score": str(score), "audio": str(audio),
-        "alignment": "known constant tempo and start offset; no automatic alignment",
+        "schema_version": 2 if auto_align else 1, "score": str(score), "audio": str(audio),
+        "alignment": "automatic duration-constrained DTW" if auto_align else "known constant tempo and start offset; no automatic alignment",
+        "note_alignment": [asdict(row) for row in alignment] if alignment is not None else None,
         "tuning": {"a4_hz": 440.0, "temperament": "12-tone equal"},
         "versions": {name: version(name) for name in ("quartetiq", "librosa", "numpy", "scipy", "music21", "soundfile")},
         "pitch_config": asdict(pitch), "analysis_config": asdict(analysis),
-        "notes": analyze_notes(events, track, pitch, analysis),
+        "notes": analyze_notes(events, track, pitch, analysis, alignment=alignment),
         "frames": {"time_seconds": track.times, "frequency_hz": track.frequencies,
                    "voiced": track.voiced, "voiced_probability": track.probabilities},
     })
@@ -62,6 +65,7 @@ def main() -> None:
         if name in ("analyze", "demo"):
             if name == "analyze":
                 sub.add_argument("--output", type=Path, default=Path("artifacts/analysis.json"))
+            sub.add_argument("--auto-align", action="store_true", help="Infer note timing; ignore analysis BPM and start offset")
             sub.add_argument("--fmin", type=float, default=196)
             sub.add_argument("--fmax", type=float, default=1200)
             sub.add_argument("--frame-length", type=int, default=2048)
@@ -91,6 +95,6 @@ def main() -> None:
         if args.command in ("analyze", "demo"):
             pitch = PitchConfig(args.sample_rate, args.frame_length, args.hop_length, args.fmin, args.fmax, args.resolution)
             analysis = AnalysisConfig(args.bpm, args.start_seconds, args.interior_fraction, args.min_voiced_probability, args.min_frames)
-            print(analyze_file(args.score, args.audio, args.output, pitch, analysis))
+            print(analyze_file(args.score, args.audio, args.output, pitch, analysis, auto_align=args.auto_align))
     except (ValueError, OSError) as error:
         parser.error(str(error))

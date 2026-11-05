@@ -1,0 +1,31 @@
+{
+  "description": "Synthetic rehearsal demo; measurements from pYIN and automatic DTW alignment",
+  "score": "ode_to_joy.musicxml",
+  "takes": [
+    {
+      "take_id": "take_1",
+      "audio": "take_1.wav",
+      "analysis": "take_1.analysis.json",
+      "truth": "take_1.truth.json",
+      "audio_sha256": "65fdf1affa5fb9d29975a1287e45e7690af0c785accf4fdf1bc55a36d5786989",
+      "analysis_sha256": "4dbcb8314777a685f6ae74c545d61397bb280c40da96838d629027107d7e26c1"
+    },
+    {
+      "take_id": "take_2",
+      "audio": "take_2.wav",
+      "analysis": "take_2.analysis.json",
+      "truth": "take_2.truth.json",
+      "audio_sha256": "6cf39b118037f3c1a96f9d4cb8a188f6d21a52a55e150bb35b68deef834938e9",
+      "analysis_sha256": "51bc979f46f908be5d3de1abe87a9a1b544484a5cd1c7c5c10e7218987f94624"
+    },
+    {
+      "take_id": "take_3",
+      "audio": "take_3.wav",
+      "analysis": "take_3.analysis.json",
+      "truth": "take_3.truth.json",
+      "audio_sha256": "c45a4384bb738ce79b0fecef744d7fbf6fc0b201857a8b3c44cbb873c4a2d16f",
+      "analysis_sha256": "09bd63c2a112f6e28d21752697e5c0c719c831d66b2027c8b796187424fda4b6"
+    }
+  ],
+  "score_sha256": "1672eef251d718eda3fddc889a05a487af45cbad224744a6154906ae1e2e9235"
+}

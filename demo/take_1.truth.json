@@ -1,0 +1,224 @@
+{
+  "config": {
+    "sample_rate": 22050,
+    "bpm": 88.0,
+    "start_seconds": 0.25,
+    "cents": 0.0,
+    "vibrato_cents": 0.0,
+    "vibrato_hz": 5.5,
+    "noise_std": 0.0005,
+    "seed": 1
+  },
+  "notes": [
+    {
+      "id": "p1-m001-n001",
+      "start_seconds": 0.24997732426303854,
+      "end_seconds": 0.9318367346938775,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m001-n002",
+      "start_seconds": 0.9318367346938775,
+      "end_seconds": 1.6136507936507936,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m001-n003",
+      "start_seconds": 1.6136507936507936,
+      "end_seconds": 2.2954648526077097,
+      "frequency_hz": 400.0009769921259,
+      "cents": 35.0
+    },
+    {
+      "id": "p1-m001-n004",
+      "start_seconds": 2.2954648526077097,
+      "end_seconds": 2.9772789115646257,
+      "frequency_hz": 441.2726066625214,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m002-n001",
+      "start_seconds": 2.9772789115646257,
+      "end_seconds": 3.659092970521542,
+      "frequency_hz": 441.2726066625214,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m002-n002",
+      "start_seconds": 3.659092970521542,
+      "end_seconds": 4.340907029478458,
+      "frequency_hz": 393.1291996260865,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m002-n003",
+      "start_seconds": 4.340907029478458,
+      "end_seconds": 5.022721088435374,
+      "frequency_hz": 379.7377758799849,
+      "cents": 45.0
+    },
+    {
+      "id": "p1-m002-n004",
+      "start_seconds": 5.022721088435374,
+      "end_seconds": 5.70453514739229,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m003-n001",
+      "start_seconds": 5.70453514739229,
+      "end_seconds": 6.386349206349206,
+      "frequency_hz": 294.5141309633155,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m003-n002",
+      "start_seconds": 6.386349206349206,
+      "end_seconds": 7.068163265306122,
+      "frequency_hz": 294.5141309633155,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m003-n003",
+      "start_seconds": 7.068163265306122,
+      "end_seconds": 7.749977324263039,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m003-n004",
+      "start_seconds": 7.749977324263039,
+      "end_seconds": 8.431836734693878,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m004-n001",
+      "start_seconds": 8.431836734693878,
+      "end_seconds": 9.454557823129251,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m004-n002",
+      "start_seconds": 9.454557823129251,
+      "end_seconds": 9.79546485260771,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m004-n003",
+      "start_seconds": 9.79546485260771,
+      "end_seconds": 11.159092970521542,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m005-n001",
+      "start_seconds": 11.159092970521542,
+      "end_seconds": 11.840907029478458,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m005-n002",
+      "start_seconds": 11.840907029478458,
+      "end_seconds": 12.522721088435373,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m005-n003",
+      "start_seconds": 12.522721088435373,
+      "end_seconds": 13.20453514739229,
+      "frequency_hz": 393.1291996260865,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m005-n004",
+      "start_seconds": 13.20453514739229,
+      "end_seconds": 13.886349206349207,
+      "frequency_hz": 441.2726066625214,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m006-n001",
+      "start_seconds": 13.886349206349207,
+      "end_seconds": 14.568163265306122,
+      "frequency_hz": 441.2726066625214,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m006-n002",
+      "start_seconds": 14.568163265306122,
+      "end_seconds": 15.249977324263039,
+      "frequency_hz": 393.1291996260865,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m006-n003",
+      "start_seconds": 15.249977324263039,
+      "end_seconds": 15.931836734693878,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m006-n004",
+      "start_seconds": 15.931836734693878,
+      "end_seconds": 16.613650793650795,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m007-n001",
+      "start_seconds": 16.613650793650795,
+      "end_seconds": 17.29546485260771,
+      "frequency_hz": 294.5141309633155,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m007-n002",
+      "start_seconds": 17.29546485260771,
+      "end_seconds": 17.977278911564625,
+      "frequency_hz": 294.5141309633155,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m007-n003",
+      "start_seconds": 17.977278911564625,
+      "end_seconds": 18.65909297052154,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m007-n004",
+      "start_seconds": 18.65909297052154,
+      "end_seconds": 19.34090702947846,
+      "frequency_hz": 371.06455309217665,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m008-n001",
+      "start_seconds": 19.34090702947846,
+      "end_seconds": 20.363628117913834,
+      "frequency_hz": 330.58093469713805,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m008-n002",
+      "start_seconds": 20.363628117913834,
+      "end_seconds": 20.70453514739229,
+      "frequency_hz": 294.5141309633155,
+      "cents": 5.0
+    },
+    {
+      "id": "p1-m008-n003",
+      "start_seconds": 20.70453514739229,
+      "end_seconds": 22.068163265306122,
+      "frequency_hz": 294.5141309633155,
+      "cents": 5.0
+    }
+  ]
+}

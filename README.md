@@ -3,7 +3,8 @@
 A Python 3.12 numerical baseline for solo-violin intonation analysis. Generates
 an eight-bar Ode to Joy arrangement in D major (4/4, quarter = 88), synthesizes
 controlled harmonic audio, measures F0 with librosa pYIN, and compares median
-note pitch centers to A4 = 440 Hz equal temperament. No UI dependency.
+note pitch centers to A4 = 440 Hz equal temperament. A Streamlit rehearsal
+dashboard compares three takes using actual measured results.
 
 ## Install and run
 
@@ -13,6 +14,8 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 cd /workspace/QuartetIQ  # or your checkout location
 uv sync --locked
 uv run pytest
+uv run streamlit run app.py
+# Optional numerical demo:
 uv run quartetiq demo --output-dir artifacts/baseline --cents 20 --seed 7
 ```
 
@@ -72,16 +75,220 @@ flat. JSON schema version 1 stores unavailable numeric results as `null`, never
 nonstandard NaN or Infinity. `insufficient_frames` explicitly identifies missing
 measurements. Invalid audio samples and invalid configuration raise errors.
 
-## Baseline scope and next milestone
+## Automatic alignment
 
-Timing is **provided**, not inferred: analysis BPM and start offset must match
-performance timing. No rubato, onset detection, time warping, or automatic score
-following is implemented. Median centers resist isolated frame errors but do not
-correct sustained octave errors or wrong alignment. Synthetic accuracy does not
-establish accuracy on microphone recordings.
+Use automatic alignment without supplying performance BPM or start time:
 
-The parser supports one monophonic part; chords, overlapping voices, and grace
-notes are rejected. Repeats are not expanded; tied written segments remain separate
-events. The generated arrangement needs neither repeats nor ties. Future work:
-real violin fixtures, automatic note alignment, vibrato-aware diagnostics, and
-validation of confidence and error thresholds on real performances.
+```bash
+uv run quartetiq analyze artifacts/ode.musicxml artifacts/test.wav --auto-align --output artifacts/aligned.json
+```
+
+The default constant-tempo mode remains available. `--auto-align` on `demo`
+uses BPM/start only for synthesis; alignment receives neither parameter.
+Automatic output uses schema version 2 and includes `note_alignment` rows with
+`note_id`, `measure`, `expected_midi`, `start_seconds`, `end_seconds`, and
+`alignment_status`. The Python API is `align_notes(events, track, audio,
+pitch_config)`, followed by `analyze_notes(..., alignment=alignment)`.
+Audio is optional but supplies evidence for repeated-note articulation.
+
+The aligner infers global tempo from the active recording span and score duration,
+then uses segmental DTW: each note or rest consumes a contiguous run of pitch
+frames. Pitch mismatch, duration deviation, and short-window amplitude valleys
+score transitions. Local durations are constrained to 65–140% of the inferred
+average, with a cumulative timing band. This accommodates ±10% tempo changes
+and moderate local variation. Initial/final silence is trimmed; internal score
+rests are explicit states. No ground-truth sidecar or score BPM is read.
+
+`aligned` means the path passed evidence gates, not a calibrated probability.
+A note needs at least five voiced interior frames, at least 50% interior voicing,
+and median pitch mismatch no larger than 75 cents. Repeated adjacent pitches
+need acoustic boundary evidence; otherwise both notes become `uncertain`.
+Widespread pitch mismatch (over 20% of notes), insufficient audio, or no feasible
+path produces `failed` rows. Unavailable boundaries are null. Uncertain/failed
+rows produce null intonation, never a fallback measurement at a fixed time.
+Aligned rows use robust median cents over the trimmed aligned interval.
+
+### Current limitations
+
+This is offline alignment of a complete, single-part monophonic take. Missing or
+extra notes, restarts, partial takes, large rubato, strong background sounds,
+long reverberation, and octave tracking errors are unsupported and can cause
+failure or incorrect correspondence. Gates are conservative heuristics; they do
+not detect every wrong path. Slurred repeated pitches without a detectable
+amplitude dip are intentionally uncertain; tied written segments have the same
+limitation. Quiet attacks/releases introduce frame/window-scale boundary error.
+Leading score rests cannot be distinguished from recording silence.
+
+The parser rejects chords, overlapping voices, and grace notes; repeats are not
+expanded. Synthetic validation does not establish microphone violin accuracy.
+Real-recording fixtures, calibrated reliability, and vibrato-aware diagnostics
+remain future work. The dashboard below adds cross-take analysis without model
+retraining.
+
+## Rehearsal dashboard
+
+Run `uv run streamlit run app.py` from the repository root. The bundled Ode to Joy
+session appears immediately: no audio analysis runs on initial demo load. Listen
+to the three recordings, view take averages and the signed-error plot, inspect
+note/measure tables, and download the measured comparison as strict JSON.
+
+Choose **Upload my recordings**, select one `.musicxml`/`.xml` score and three
+WAVs in chronological order, then click **Analyze recordings**. Each recording
+uses automatic alignment without supplied BPM/start time. Uploads are limited to
+20 MB, mono/stereo WAV, 60 seconds each, and 120 score notes. Three complete
+recordings of the same monophonic passage are required. Uncertain alignment or
+unavailable pitch produces a warning and blank measurement, never zero error.
+Changing an upload hides old results until analysis completes.
+
+pYIN is CPU-intensive and first-run JIT compilation adds startup time. Uploaded
+audio is processed server-side in temporary files deleted after analysis.
+`st.cache_data` caches by exact score/audio bytes, up to nine analyses for one
+hour in server memory; it avoids recomputing unchanged takes on reruns. The cache
+is shared within the server process; raw upload bytes participate in cache keys,
+and each visitor's upload/results state is session-local. There is no database,
+authentication, or long-term upload storage in this milestone.
+
+### Comparison semantics
+
+`comparison.py` joins notes by stable score IDs, validates matching score
+metadata, and excludes nonfinite values, non-OK pitch measurements, and
+uncertain/failed/unknown alignment. Explicit constant-tempo results remain
+supported. Take means are unweighted means across reliable notes; coverage is
+always reported. Signed cents retain sharp/flat direction; absolute cents
+measure magnitude.
+
+First-to-last improvement uses **only shared reliable notes**, so missing data
+cannot masquerade as improvement. Positive improvement is reduced absolute
+error; negative improvement is worsening. Percentage reduction is null when
+there are no paired notes or the initial mean error is zero.
+
+A persistent error exceeds the provisional **15-cent** threshold in at least
+two reliable takes. Two observed exceedances suffice if the third measurement
+is unavailable; counts and coverage remain visible. Fewer than two reliable
+observations yield `insufficient_data`. A value exactly 15 does not exceed it.
+Priorities rank recurring notes first, then known latest errors ahead of
+unavailable latest measurements, then descending latest/mean absolute error,
+and finally stable ID. A note that has improved can still have a recurring
+history; the dashboard explicitly marks when its latest take is within threshold.
+
+### Bundled demo provenance
+
+`demo/` contains the score, three WAVs, truth sidecars, measured analyses (including
+pYIN frames and automatic boundaries), and a SHA-256 manifest. Regenerate with:
+
+```bash
+uv run python -m quartetiq.demo --output-dir demo
+```
+
+The existing synthesizer is reused with deterministic per-note deviations:
+
+| Pattern | Note | Synthesis targets, takes 1 → 3 |
+| --- | --- | --- |
+| Stays sharp | Measure 1, note 3, G4 | +35, +33, +31 cents |
+| Improves | Measure 2, note 3, F#4 | +45, +12, +3 cents |
+| Accurate passage | All other notes, including measures 5–8 | +5, +3, 0 cents |
+
+Tempo is 88/92/84 BPM with 0.25/0.7/1.1-second initial silence. Analysis reads the
+written WAVs and never reads truth sidecars. UI results are loaded exclusively
+from measured analysis files. The improving note's middle take measures about
+15.02 cents (pYIN has finite pitch resolution), so the strict measured threshold
+also flags its history as recurring; its last take measures about 5.02 cents.
+We retain this real result rather than alter truth or override classification.
+Synthetic results do not establish accuracy on real microphone recordings.
+
+### Read-only functions for Muse Spark integration
+
+The public functions in `quartetiq.comparison` are:
+
+- `get_performance_summary(results, threshold_cents=15.0)` — take means, coverage,
+  and paired first-to-last improvement.
+- `compare_takes(results, threshold_cents=15.0)` — complete comparison, including
+  signed/absolute observations and exclusion reasons per note.
+- `get_measure_analysis(results, measure=None, threshold_cents=15.0)` — all
+  measure summaries, optionally filtered by integer measure number.
+- `get_persistent_errors(results, threshold_cents=15.0)` — recurring notes with
+  observation counts, actual measurements, and improvement.
+- `get_practice_priorities(results, threshold_cents=15.0)` — deterministic ranks
+  and evidence; no generated advice.
+
+`results` is a chronological list of QuartetIQ analysis dictionaries, each with
+`notes` and optional unique `take_id` (defaults to `take_1`, etc.). Outputs contain
+only JSON-compatible dictionaries/lists/scalars/null, support
+`json.dumps(output, allow_nan=False)`, and never mutate inputs or perform I/O.
+Invalid or conflicting score metadata raises `ValueError`. The Muse Spark adapter binds the currently selected session's results to these
+functions. Model arguments cannot replace the dataset or execute arbitrary code.
+See the AI Coach setup below.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Streamlit Community Cloud setup and
+[VERIFICATION.md](VERIFICATION.md) for measured results and tests.
+
+### Before hackathon submission
+
+- Deploy to Community Cloud and verify its public URL and upload flow there.
+- Validate with real solo-violin recordings, particularly repeated/slurred notes
+  and noisy rooms; document cases with unreliable correspondence.
+- Configure and verify real Muse Spark access on the deployment; review grounded
+  coaching against the measured evidence. Mocked tests alone do not verify live access.
+- Record the short demo and prepare the submission narrative, repository link,
+  and measured limitations. Confirm the event's submission/API requirements.
+- Before broader public use, add authentication/resource controls appropriate
+  to the audience and validate concurrent upload performance on the deployment.
+
+## AI Coach — Meta Muse Spark 1.3
+
+The **AI Coach** tab uses the real OpenAI-compatible Meta Chat Completions API
+at `https://api.meta.ai/v1`, model `muse-spark-1.3`, through the `openai` Python
+SDK. Configure `MODEL_API_KEY` in the server environment or Streamlit secrets;
+see [DEPLOYMENT.md](DEPLOYMENT.md). No credentials belong in source control or
+chat. Environment configuration takes precedence over Streamlit secrets.
+
+Load the demo (or finish analyzing uploads), open **AI Coach**, and ask
+“Which measures should I practice next?” Suggested questions, a chat input,
+conversation history, a clear-history control, and a connection check are
+provided. Without credentials the numerical dashboard and deterministic
+priorities continue to work; coaching controls are disabled. API errors produce
+sanitized messages, never a fabricated assistant answer.
+
+The implementation follows [Meta's function-calling cookbook](https://dev.meta.ai/docs/cookbook/tool-function-calling).
+Meta supports only `tool_choice="auto"`; required/named tool selection is not
+used. The model receives five function schemas matching the existing Python
+signatures, with `results` bound server-side. Names are explicitly allowlisted;
+JSON argument types, unknown fields, nonfinite values, and duplicate keys are
+checked before dispatch. Each full assistant tool-call message is followed by
+one JSON result per matching call ID. Invalid tool requests return safe errors
+so the model may recover. No generated Python is executed.
+
+Each question permits four tool rounds, at most eight calls per round, plus a
+final completion request. An answer is displayed only after a successful
+measurement tool call in that question. A model that skips evidence is prompted
+to retrieve it within the same bounded budget; otherwise the UI reports failure.
+This guard prevents a tool-free answer from being presented as grounded, but it
+cannot guarantee every statement in model prose is correct. Coaching instructions
+require measured cents, measures/note IDs, coverage, and a distinction between
+observed errors and hypothetical physical causes. Review generated advice
+against the numerical dashboard.
+
+Conversation history is private to Streamlit session state and reset when the
+selected dataset changes or uploads become incomplete/stale. Five complete
+prior turns are sent for context (tool calls/results stay paired). Failed API
+turns do not overwrite successful conversation history. No client or chat answer
+is shared through Streamlit caching. Questions and requested measurement results
+are sent to Meta; audio files and credentials are never included in prompts.
+
+### Explicit live verification
+
+These commands make real authenticated requests and may incur provider usage:
+
+```bash
+# Environment MODEL_API_KEY must already be configured securely.
+uv run python -m quartetiq.muse
+uv run python -m quartetiq.muse --tools
+```
+
+The first checks connectivity only. `--tools` additionally loads the bundled
+demo, asks the practice-priority question, executes model-requested functions
+against actual measurements, and reports successful tool names and whether an
+answer was received. It does not print credentials or raw provider errors.
+The CLI reads environment credentials; the app additionally reads Streamlit
+secrets. Mocked tests never make these live requests. Consult VERIFICATION.md
+for the actual live-test status of this milestone.
